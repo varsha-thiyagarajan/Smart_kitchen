@@ -1,0 +1,657 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Smart Food Waste Management System</title>
+  <link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=DM+Sans:ital,wght@0,300;0,400;0,500;1,300&display=swap" rel="stylesheet" />
+  <style>
+    /* ── Reset & Variables ─────────────────────── */
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg:          #0d1117;
+      --surface:     #161b22;
+      --surface2:    #21262d;
+      --border:      #30363d;
+      --accent:      #3fb950;
+      --accent-dim:  #1a4329;
+      --amber:       #d29922;
+      --red:         #f85149;
+      --text:        #e6edf3;
+      --muted:       #8b949e;
+      --font-head:   'Syne', sans-serif;
+      --font-body:   'DM Sans', sans-serif;
+      --radius:      12px;
+      --shadow:      0 8px 32px rgba(0,0,0,.45);
+    }
+
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: var(--font-body);
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 2rem 1rem 4rem;
+      /* subtle grid texture */
+      background-image:
+        linear-gradient(rgba(63,185,80,.04) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(63,185,80,.04) 1px, transparent 1px);
+      background-size: 40px 40px;
+    }
+
+    /* ── Header ────────────────────────────────── */
+    header {
+      text-align: center;
+      margin-bottom: 2.5rem;
+      animation: fadeDown .6s ease both;
+    }
+
+    .badge {
+      display: inline-block;
+      background: var(--accent-dim);
+      color: var(--accent);
+      font-size: .75rem;
+      font-weight: 600;
+      letter-spacing: .1em;
+      text-transform: uppercase;
+      padding: .3rem .9rem;
+      border-radius: 100px;
+      border: 1px solid rgba(63,185,80,.3);
+      margin-bottom: 1rem;
+    }
+
+    h1 {
+      font-family: var(--font-head);
+      font-size: clamp(1.8rem, 5vw, 2.8rem);
+      font-weight: 800;
+      line-height: 1.1;
+      background: linear-gradient(135deg, #e6edf3 0%, var(--accent) 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+
+    header p {
+      color: var(--muted);
+      font-size: .95rem;
+      margin-top: .5rem;
+      font-weight: 300;
+    }
+
+    /* ── Architecture strip ─────────────────────── */
+    .arch {
+      display: flex;
+      align-items: center;
+      gap: .5rem;
+      flex-wrap: wrap;
+      justify-content: center;
+      margin-bottom: 2rem;
+      animation: fadeDown .7s .1s ease both;
+    }
+
+    .arch-node {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: .35rem .8rem;
+      font-size: .78rem;
+      color: var(--muted);
+      font-family: var(--font-head);
+      font-weight: 600;
+      letter-spacing: .03em;
+    }
+
+    .arch-node.active { color: var(--accent); border-color: rgba(63,185,80,.4); }
+
+    .arch-arrow { color: var(--border); font-size: .8rem; }
+
+    /* ── Main grid ─────────────────────────────── */
+    .main-grid {
+      width: 100%;
+      max-width: 1000px;
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 1.5rem;
+      animation: fadeUp .7s .15s ease both;
+    }
+
+    @media (max-width: 680px) {
+      .main-grid { grid-template-columns: 1fr; }
+    }
+
+    /* ── Card ───────────────────────────────────── */
+    .card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 1.75rem;
+      box-shadow: var(--shadow);
+    }
+
+    .card-title {
+      font-family: var(--font-head);
+      font-size: .8rem;
+      font-weight: 700;
+      letter-spacing: .1em;
+      text-transform: uppercase;
+      color: var(--muted);
+      margin-bottom: 1.25rem;
+      display: flex;
+      align-items: center;
+      gap: .5rem;
+    }
+
+    .card-title::before {
+      content: '';
+      display: block;
+      width: 3px;
+      height: 14px;
+      background: var(--accent);
+      border-radius: 2px;
+    }
+
+    /* ── Form ───────────────────────────────────── */
+    .field { margin-bottom: 1.1rem; }
+
+    label {
+      display: block;
+      font-size: .8rem;
+      font-weight: 500;
+      color: var(--muted);
+      margin-bottom: .4rem;
+      letter-spacing: .03em;
+    }
+
+    input, select {
+      width: 100%;
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      color: var(--text);
+      font-family: var(--font-body);
+      font-size: .95rem;
+      padding: .65rem .9rem;
+      outline: none;
+      transition: border-color .2s, box-shadow .2s;
+    }
+
+    input:focus, select:focus {
+      border-color: var(--accent);
+      box-shadow: 0 0 0 3px rgba(63,185,80,.15);
+    }
+
+    select option { background: var(--surface2); }
+
+    /* range slider */
+    .range-wrap { display: flex; align-items: center; gap: .75rem; }
+
+    input[type="range"] {
+      flex: 1;
+      height: 5px;
+      accent-color: var(--accent);
+      padding: 0;
+      cursor: pointer;
+    }
+
+    .range-val {
+      min-width: 2rem;
+      text-align: center;
+      font-weight: 600;
+      color: var(--accent);
+      font-size: .95rem;
+    }
+
+    /* ── Button ─────────────────────────────────── */
+    .btn-predict {
+      width: 100%;
+      background: var(--accent);
+      color: #0d1117;
+      border: none;
+      border-radius: 8px;
+      font-family: var(--font-head);
+      font-size: 1rem;
+      font-weight: 700;
+      letter-spacing: .04em;
+      padding: .8rem;
+      cursor: pointer;
+      margin-top: .5rem;
+      transition: transform .15s, box-shadow .15s, filter .15s;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .btn-predict:hover { filter: brightness(1.1); transform: translateY(-1px); box-shadow: 0 6px 20px rgba(63,185,80,.3); }
+    .btn-predict:active { transform: translateY(0); }
+    .btn-predict:disabled { opacity: .5; cursor: not-allowed; transform: none; }
+
+    .btn-predict .spinner {
+      display: none;
+      width: 16px; height: 16px;
+      border: 2px solid rgba(0,0,0,.3);
+      border-top-color: #000;
+      border-radius: 50%;
+      animation: spin .6s linear infinite;
+      margin: 0 auto;
+    }
+
+    .btn-predict.loading .btn-text { display: none; }
+    .btn-predict.loading .spinner  { display: block; }
+
+    /* ── Results card ───────────────────────────── */
+    #result-card { display: none; }
+    #result-card.visible { display: block; animation: fadeUp .4s ease both; }
+
+    .waste-display {
+      text-align: center;
+      margin-bottom: 1.5rem;
+    }
+
+    .waste-number {
+      font-family: var(--font-head);
+      font-size: 3.2rem;
+      font-weight: 800;
+      color: var(--accent);
+      line-height: 1;
+    }
+
+    .waste-unit {
+      font-size: .85rem;
+      color: var(--muted);
+      margin-top: .2rem;
+    }
+
+    /* Risk badge */
+    .risk-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: .5rem;
+      padding: .4rem 1.1rem;
+      border-radius: 100px;
+      font-family: var(--font-head);
+      font-size: .85rem;
+      font-weight: 700;
+      letter-spacing: .08em;
+      text-transform: uppercase;
+      margin-top: .75rem;
+    }
+
+    /* Progress bar */
+    .progress-wrap {
+      margin: 1.25rem 0;
+    }
+
+    .progress-label {
+      display: flex;
+      justify-content: space-between;
+      font-size: .78rem;
+      color: var(--muted);
+      margin-bottom: .4rem;
+    }
+
+    .progress-bg {
+      background: var(--surface2);
+      border-radius: 100px;
+      height: 10px;
+      overflow: hidden;
+    }
+
+    .progress-fill {
+      height: 100%;
+      border-radius: 100px;
+      transition: width 1s cubic-bezier(.22,.68,0,1.2);
+      background: var(--accent);
+    }
+
+    /* Advice box */
+    .advice-box {
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: .9rem 1rem;
+      font-size: .875rem;
+      color: var(--muted);
+      line-height: 1.5;
+      margin-top: 1rem;
+    }
+
+    .advice-box strong { color: var(--text); display: block; margin-bottom: .25rem; }
+
+    /* ── Stats row ──────────────────────────────── */
+    .stats-row {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: .75rem;
+      margin-top: 1rem;
+    }
+
+    .stat-box {
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: .7rem .9rem;
+    }
+
+    .stat-label { font-size: .7rem; color: var(--muted); text-transform: uppercase; letter-spacing: .07em; }
+    .stat-value { font-family: var(--font-head); font-size: 1.1rem; font-weight: 700; color: var(--text); margin-top: .15rem; }
+
+    /* ── ML Info card ───────────────────────────── */
+    .info-card {
+      width: 100%;
+      max-width: 1000px;
+      margin-top: 1.5rem;
+      animation: fadeUp .7s .25s ease both;
+    }
+
+    .info-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 1rem;
+    }
+
+    @media (max-width: 600px) { .info-grid { grid-template-columns: 1fr; } }
+
+    .info-box {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 1rem 1.25rem;
+    }
+
+    .info-box h4 {
+      font-family: var(--font-head);
+      font-size: .8rem;
+      font-weight: 700;
+      color: var(--accent);
+      text-transform: uppercase;
+      letter-spacing: .07em;
+      margin-bottom: .4rem;
+    }
+
+    .info-box p {
+      font-size: .8rem;
+      color: var(--muted);
+      line-height: 1.55;
+    }
+
+    /* ── Error ──────────────────────────────────── */
+    .error-msg {
+      background: rgba(248,81,73,.1);
+      border: 1px solid rgba(248,81,73,.3);
+      color: var(--red);
+      border-radius: 8px;
+      padding: .7rem 1rem;
+      font-size: .85rem;
+      margin-top: .75rem;
+      display: none;
+    }
+
+    .error-msg.visible { display: block; animation: fadeUp .3s ease; }
+
+    /* ── Animations ─────────────────────────────── */
+    @keyframes fadeDown { from { opacity:0; transform:translateY(-16px); } to { opacity:1; transform:none; } }
+    @keyframes fadeUp   { from { opacity:0; transform:translateY(16px);  } to { opacity:1; transform:none; } }
+    @keyframes spin     { to { transform: rotate(360deg); } }
+  </style>
+</head>
+<body>
+
+<!-- ── Header ─────────────────────────────────── -->
+<header>
+  <div class="badge">🌱 Final Year Project — ML System</div>
+  <h1>Smart Food Waste<br>Management System</h1>
+  <p>Linear Regression · Decision Tree · Flask API · Real Dataset</p>
+</header>
+
+<!-- ── Architecture Strip ─────────────────────── -->
+<div class="arch">
+  <div class="arch-node active">User Input</div>
+  <div class="arch-arrow">→</div>
+  <div class="arch-node">Frontend (HTML/JS)</div>
+  <div class="arch-arrow">→</div>
+  <div class="arch-node">Flask REST API</div>
+  <div class="arch-arrow">→</div>
+  <div class="arch-node">ML Model (.pkl)</div>
+  <div class="arch-arrow">→</div>
+  <div class="arch-node active">Prediction + Risk</div>
+</div>
+
+<!-- ── Main Grid ───────────────────────────────── -->
+<div class="main-grid">
+
+  <!-- Input Card -->
+  <div class="card">
+    <div class="card-title">Input Parameters</div>
+
+    <div class="field">
+      <label>🏠 Family Size (persons)</label>
+      <div class="range-wrap">
+        <input type="range" id="family_size" min="1" max="10" value="4"
+               oninput="document.getElementById('fs_val').textContent=this.value" />
+        <span class="range-val" id="fs_val">4</span>
+      </div>
+    </div>
+
+    <div class="field">
+      <label>⚖️ Food Quantity (kg)</label>
+      <input type="number" id="food_quantity" min="0.1" max="50" step="0.1"
+             value="2.5" placeholder="e.g. 2.5" />
+    </div>
+
+    <div class="field">
+      <label>📅 Storage Duration (days)</label>
+      <div class="range-wrap">
+        <input type="range" id="storage_days" min="1" max="14" value="4"
+               oninput="document.getElementById('sd_val').textContent=this.value" />
+        <span class="range-val" id="sd_val">4</span>
+      </div>
+    </div>
+
+    <div class="field">
+      <label>🥦 Food / Item Type</label>
+      <select id="item_type">
+        <!-- Populated dynamically from /api/food-items -->
+        <option value="">Loading…</option>
+      </select>
+    </div>
+
+    <button class="btn-predict" id="predict-btn" onclick="predict()">
+      <span class="btn-text">🔮 Predict Waste</span>
+      <span class="spinner"></span>
+    </button>
+
+    <div class="error-msg" id="error-msg"></div>
+  </div>
+
+  <!-- Result Card -->
+  <div class="card" id="result-card">
+    <div class="card-title">Prediction Result</div>
+
+    <div class="waste-display">
+      <div class="waste-number" id="waste-val">—</div>
+      <div class="waste-unit">kilograms of predicted waste</div>
+      <div id="risk-badge"></div>
+    </div>
+
+    <div class="progress-wrap">
+      <div class="progress-label">
+        <span>Waste Percentage</span>
+        <span id="pct-label">0%</span>
+      </div>
+      <div class="progress-bg">
+        <div class="progress-fill" id="progress-fill" style="width:0%"></div>
+      </div>
+    </div>
+
+    <div class="stats-row">
+      <div class="stat-box">
+        <div class="stat-label">Total Quantity</div>
+        <div class="stat-value" id="stat-qty">—</div>
+      </div>
+      <div class="stat-box">
+        <div class="stat-label">Wasted</div>
+        <div class="stat-value" id="stat-waste">—</div>
+      </div>
+      <div class="stat-box">
+        <div class="stat-label">Salvageable</div>
+        <div class="stat-value" id="stat-save">—</div>
+      </div>
+      <div class="stat-box">
+        <div class="stat-label">Risk Level</div>
+        <div class="stat-value" id="stat-risk">—</div>
+      </div>
+    </div>
+
+    <div class="advice-box">
+      <strong id="advice-title">💡 Advice</strong>
+      <span id="advice-text">—</span>
+    </div>
+
+    <div class="advice-box" style="margin-top:.6rem;">
+      <strong id="tip-title">🗂️ Storage Tip</strong>
+      <span id="tip-text">—</span>
+    </div>
+  </div>
+
+</div>
+
+<!-- ── ML Info Row ────────────────────────────── -->
+<div class="info-card">
+  <div class="info-grid">
+    <div class="info-box">
+      <h4>📊 Dataset</h4>
+      <p>Household food waste dataset (Kaggle). Columns include family size, item type, quantity, storage duration, and waste amount. ~1,200 realistic records.</p>
+    </div>
+    <div class="info-box">
+      <h4>🧠 ML Models</h4>
+      <p><b style="color:var(--text)">Linear Regression</b> predicts waste in kg. <b style="color:var(--text)">Decision Tree</b> classifies risk (LOW / MEDIUM / HIGH). Both saved as .pkl via joblib.</p>
+    </div>
+    <div class="info-box">
+      <h4>⚙️ Pipeline</h4>
+      <p>Missing value imputation → Label Encoding → Feature selection → 80/20 split → Training → R² + MAE evaluation → Serialised model.</p>
+    </div>
+  </div>
+</div>
+
+<!-- ── Script ─────────────────────────────────── -->
+<script>
+  const API = "http://127.0.0.1:5000/api";
+
+  // ── Load food items on page load ──────────────
+  async function loadFoodItems() {
+    try {
+      const res  = await fetch(`${API}/food-items`);
+      const data = await res.json();
+      const sel  = document.getElementById("item_type");
+      sel.innerHTML = data.items
+        .map(i => `<option value="${i}">${i}</option>`)
+        .join("");
+    } catch {
+      // Fallback list if API not running
+      const fallback = ["Vegetables","Fruits","Rice","Bread","Dairy","Meat","Snacks","Cooked Food"];
+      const sel = document.getElementById("item_type");
+      sel.innerHTML = fallback.map(i => `<option value="${i}">${i}</option>`).join("");
+    }
+  }
+
+  loadFoodItems();
+
+  // ── Predict ────────────────────────────────────
+  async function predict() {
+    const btn      = document.getElementById("predict-btn");
+    const errorDiv = document.getElementById("error-msg");
+    errorDiv.classList.remove("visible");
+
+    // Gather inputs
+    const payload = {
+      family_size:   parseInt(document.getElementById("family_size").value),
+      food_quantity: parseFloat(document.getElementById("food_quantity").value),
+      storage_days:  parseInt(document.getElementById("storage_days").value),
+      item_type:     document.getElementById("item_type").value,
+    };
+
+    // Validate
+    if (!payload.food_quantity || payload.food_quantity <= 0) {
+      showError("Please enter a valid food quantity (> 0 kg).");
+      return;
+    }
+
+    // Loading state
+    btn.classList.add("loading");
+    btn.disabled = true;
+
+    try {
+      const res  = await fetch(`${API}/predict`, {
+        method:  "POST",
+        headers: { "Content-Type": "application/json" },
+        body:    JSON.stringify(payload),
+      });
+
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Prediction failed.");
+
+      renderResult(data);
+    } catch (err) {
+      showError(`${err.message}. Make sure the Flask server is running.`);
+    } finally {
+      btn.classList.remove("loading");
+      btn.disabled = false;
+    }
+  }
+
+  // ── Render result ──────────────────────────────
+  function renderResult(d) {
+    const card = document.getElementById("result-card");
+    card.classList.remove("visible");
+
+    // Numbers
+    document.getElementById("waste-val").textContent   = d.predicted_waste_kg.toFixed(3) + " kg";
+    document.getElementById("stat-qty").textContent    = d.food_quantity_kg + " kg";
+    document.getElementById("stat-waste").textContent  = d.predicted_waste_kg.toFixed(3) + " kg";
+    document.getElementById("stat-save").textContent   = (d.food_quantity_kg - d.predicted_waste_kg).toFixed(3) + " kg";
+    document.getElementById("stat-risk").textContent   = d.risk_emoji + " " + d.risk_level;
+
+    // Risk badge
+    const badge = document.getElementById("risk-badge");
+    badge.innerHTML = `
+      <span class="risk-badge" style="background:${d.risk_color}22;color:${d.risk_color};border:1px solid ${d.risk_color}55;">
+        ${d.risk_emoji} ${d.risk_level} RISK
+      </span>`;
+
+    // Progress bar
+    const pct = Math.min(d.waste_percentage, 100);
+    document.getElementById("pct-label").textContent = pct.toFixed(1) + "%";
+    const fill = document.getElementById("progress-fill");
+    fill.style.width   = "0%";
+    fill.style.background = d.risk_color;
+    setTimeout(() => { fill.style.width = pct + "%"; }, 50);
+
+    // Waste number colour
+    document.getElementById("waste-val").style.color = d.risk_color;
+
+    // Advice & tip
+    document.getElementById("advice-text").textContent = d.advice;
+    document.getElementById("tip-text").textContent    = d.tip;
+
+    // Show card
+    void card.offsetWidth; // reflow
+    card.classList.add("visible");
+  }
+
+  // ── Error helper ───────────────────────────────
+  function showError(msg) {
+    const el = document.getElementById("error-msg");
+    el.textContent = "⚠️ " + msg;
+    el.classList.add("visible");
+  }
+
+  // Enter key trigger
+  document.addEventListener("keydown", e => {
+    if (e.key === "Enter") predict();
+  });
+</script>
+
+</body>
+</html>

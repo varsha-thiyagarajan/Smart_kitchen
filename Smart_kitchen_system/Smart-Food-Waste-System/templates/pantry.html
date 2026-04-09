@@ -1,0 +1,159 @@
+<!DOCTYPE html>
+<html>
+<head>
+<title>Smart Pantry</title>
+
+<style>
+body {
+    font-family: Arial;
+    background: linear-gradient(to right, #74ebd5, #9face6);
+}
+.container {
+    width: 500px;
+    margin: auto;
+    background: white;
+    padding: 20px;
+}
+input, button {
+    width: 100%;
+    padding: 10px;
+    margin: 5px 0;
+}
+table {
+    width: 100%;
+    margin-top: 10px;
+}
+td, th {
+    padding: 8px;
+    text-align: center;
+}
+</style>
+
+</head>
+
+<body>
+
+<div class="container">
+
+<h2>🧺 Smart Pantry</h2>
+
+<input id="name" placeholder="Food name">
+<input id="quantity" type="number" placeholder="Quantity">
+<input id="family_size" type="number" placeholder="Family size">
+
+<button onclick="addItem()">Add Item</button>
+
+<h3>Pantry</h3>
+
+<table border="1">
+<thead>
+<tr>
+<th>Name</th>
+<th>Category</th>
+<th>Qty</th>
+<th>Days</th>
+<th>Waste</th>
+<th>Risk</th>
+<th>Expiry</th>
+</tr>
+</thead>
+
+<tbody id="table"></tbody>
+</table>
+
+<button onclick="clearPantry()">Clear Pantry</button>
+
+</div>
+
+<script>
+function addItem() {
+
+    let nameVal = document.getElementById("name").value.trim();
+    let qty = parseFloat(document.getElementById("quantity").value);
+    let fam = parseFloat(document.getElementById("family_size").value);
+
+    // ✅ VALIDATION
+    if (!nameVal || isNaN(qty) || isNaN(fam) || qty <= 0 || fam <= 0) {
+        alert("Please enter valid values!");
+        return;
+    }
+
+    fetch("/add_item", {
+        method: "POST",
+        headers: {"Content-Type": "application/json"},
+        body: JSON.stringify({
+            name: nameVal,
+            quantity: qty,
+            family_size: fam
+        })
+    })
+    .then(res => res.json())
+    .then(data => {
+
+        if(data.error){
+            alert(data.error);
+            return;
+        }
+
+        // clear inputs
+        document.getElementById("name").value = "";
+        document.getElementById("quantity").value = "";
+        document.getElementById("family_size").value = "";
+
+        load();
+    });
+}
+
+function load() {
+    fetch("/get_pantry")
+    .then(res => res.json())
+    .then(data => {
+
+        let html = "";
+
+        data.forEach((item, index) => {
+
+            let color = "green";
+            if(item.risk === "MEDIUM") color = "orange";
+            if(item.risk === "HIGH") color = "red";
+
+            html += `
+<tr>
+    <td>${item.name}</td>
+    <td>${item.category}</td>
+    <td>${item.quantity}</td>
+    <td>${item.days}</td>
+    <td>${item.waste}</td>
+    <td style="color:${color}">${item.risk}</td>
+    <td>${item.expiry}</td>
+    <td>
+        <button onclick="deleteItem(${index})">❌</button>
+    </td>
+</tr>`;
+        });
+
+        document.getElementById("table").innerHTML = html;
+    });
+}
+
+
+function clearPantry() {
+    fetch("/clear_pantry", {method:"POST"})
+    .then(() => load());
+}
+function deleteItem(index) {
+    fetch(`/delete_item/${index}`, {
+        method: "POST"
+    }).then(() => load());
+}
+
+// 🔥 AUTO UPDATE EVERY 5 SECONDS
+setInterval(load, 5000);
+
+// Load on start
+load();
+
+</script>
+
+</body>
+</html>
