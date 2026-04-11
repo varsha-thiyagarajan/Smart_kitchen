@@ -1,159 +1,50 @@
 <!DOCTYPE html>
 <html>
 <head>
-<title>Smart Pantry</title>
-
-<style>
-body {
-    font-family: Arial;
-    background: linear-gradient(to right, #74ebd5, #9face6);
-}
-.container {
-    width: 500px;
-    margin: auto;
-    background: white;
-    padding: 20px;
-}
-input, button {
-    width: 100%;
-    padding: 10px;
-    margin: 5px 0;
-}
-table {
-    width: 100%;
-    margin-top: 10px;
-}
-td, th {
-    padding: 8px;
-    text-align: center;
-}
-</style>
-
+    <title>Pantry</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
 </head>
-
 <body>
 
 <div class="container">
+    <a href="/recipes" class="btn">View Recipes 🍲</a>
 
-<h2>🧺 Smart Pantry</h2>
+    <h1>🧺 Pantry Items</h1>
+    <p class="subtitle">Your current kitchen inventory</p>
 
-<input id="name" placeholder="Food name">
-<input id="quantity" type="number" placeholder="Quantity">
-<input id="family_size" type="number" placeholder="Family size">
+    <table>
+        <tr>
+            <th>ID</th>
+            <th>Item</th>
+            <th>Quantity</th>
+            <th>Unit</th>
+            <th>Purchase Date</th>
+            <th>Action</th>
+            <th>Risk</th>
+            <th>Alert</th>
+        </tr>
 
-<button onclick="addItem()">Add Item</button>
+        {% for item in items %}
+        <tr>
+            <td>{{ item[0] }}</td>
+            <td>{{ item[1] }}</td>
+            <td>{{ item[2] }}</td>
+            <td>{{ item[3] }}</td>
+            <td>{{ item[4] }}</td>
+            <td>{{ item[5] }}</td>
+            <td>{{ item[6] }}</td>
+            <td>
+                <a href="/delete/{{ item[0] }}" class="delete-btn">🗑️ </a>
+            </td>
+        </tr>
+        {% endfor %}
 
-<h3>Pantry</h3>
+    </table>
 
-<table border="1">
-<thead>
-<tr>
-<th>Name</th>
-<th>Category</th>
-<th>Qty</th>
-<th>Days</th>
-<th>Waste</th>
-<th>Risk</th>
-<th>Expiry</th>
-</tr>
-</thead>
-
-<tbody id="table"></tbody>
-</table>
-
-<button onclick="clearPantry()">Clear Pantry</button>
+    <br><br>
+    <a href="/" class="link-btn">⬅ Back to Upload</a>
 
 </div>
-
-<script>
-function addItem() {
-
-    let nameVal = document.getElementById("name").value.trim();
-    let qty = parseFloat(document.getElementById("quantity").value);
-    let fam = parseFloat(document.getElementById("family_size").value);
-
-    // ✅ VALIDATION
-    if (!nameVal || isNaN(qty) || isNaN(fam) || qty <= 0 || fam <= 0) {
-        alert("Please enter valid values!");
-        return;
-    }
-
-    fetch("/add_item", {
-        method: "POST",
-        headers: {"Content-Type": "application/json"},
-        body: JSON.stringify({
-            name: nameVal,
-            quantity: qty,
-            family_size: fam
-        })
-    })
-    .then(res => res.json())
-    .then(data => {
-
-        if(data.error){
-            alert(data.error);
-            return;
-        }
-
-        // clear inputs
-        document.getElementById("name").value = "";
-        document.getElementById("quantity").value = "";
-        document.getElementById("family_size").value = "";
-
-        load();
-    });
-}
-
-function load() {
-    fetch("/get_pantry")
-    .then(res => res.json())
-    .then(data => {
-
-        let html = "";
-
-        data.forEach((item, index) => {
-
-            let color = "green";
-            if(item.risk === "MEDIUM") color = "orange";
-            if(item.risk === "HIGH") color = "red";
-
-            html += `
-<tr>
-    <td>${item.name}</td>
-    <td>${item.category}</td>
-    <td>${item.quantity}</td>
-    <td>${item.days}</td>
-    <td>${item.waste}</td>
-    <td style="color:${color}">${item.risk}</td>
-    <td>${item.expiry}</td>
-    <td>
-        <button onclick="deleteItem(${index})">❌</button>
-    </td>
-</tr>`;
-        });
-
-        document.getElementById("table").innerHTML = html;
-    });
-}
-
-
-function clearPantry() {
-    fetch("/clear_pantry", {method:"POST"})
-    .then(() => load());
-}
-function deleteItem(index) {
-    fetch(`/delete_item/${index}`, {
-        method: "POST"
-    }).then(() => load());
-}
-
-// 🔥 AUTO UPDATE EVERY 5 SECONDS
-setInterval(load, 5000);
-
-// Load on start
-load();
-
-</script>
 
 </body>
 </html>

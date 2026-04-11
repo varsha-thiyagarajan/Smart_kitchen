@@ -1,226 +1,246 @@
-# ============================================
-# SMART FOOD WASTE SYSTEM (PERSISTENT + AUTO)
-# ============================================
-
-from flask import Flask, request, jsonify, render_template
-import joblib
-import numpy as np
+from flask import Flask, request, render_template, redirect
+import pandas as pd
+import sqlite3
 from datetime import datetime
-import json
 import os
-from recipe_models import recommend_recipes
+from sklearn.metrics.pairwise import cosine_similarity
 
-# --------------------------------------------
-# APP CONFIG
-# --------------------------------------------
+import joblib
+from datetime import datetime
+
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+
+risk_model = joblib.load(os.path.join(BASE_DIR, "../models/risk_model.pkl"))
+encoder = joblib.load(os.path.join(BASE_DIR, "../models/encoder.pkl"))
+
+
+
+# Load ML models
+vectorizer = joblib.load("../models/tfidf_vectorizer.pkl")
+tfidf_matrix = joblib.load("../models/tfidf_matrix.pkl")
+recipes_df = joblib.load("../models/recipes_df.pkl")
 app = Flask(
     __name__,
     template_folder="../templates",
     static_folder="../static"
 )
+UPLOAD_FOLDER = "uploads"
+os.makedirs(UPLOAD_FOLDER, exist_ok=True)
+def get_category(item):
+    item = item.lower()
 
-# --------------------------------------------
-# LOAD MODELS
-# --------------------------------------------
-waste_model = joblib.load("../models/waste_model.pkl")
-encoder = joblib.load("../models/encoder.pkl")
+    if item in ["milk", "curd", "paneer", "butter"]:
+        return "Dairy Products"
+    elif item in ["rice", "wheat flour", "oats"]:
+        return "Grains & Cereals"
+    elif item in ["chicken", "fish", "eggs"]:
+        return "Meat & Seafood"
+    elif item in ["juice", "tea", "coffee"]:
+        return "Beverages"
+    else:
+        return "Fruits & Vegetables"
+    
+# -------------------------------
+# DATABASE SETUP
+# -------------------------------
+def init_db():
+    conn = sqlite3.connect("pantry.db")
+    cursor = conn.cursor()
 
-# --------------------------------------------
-# FILE STORAGE
-# --------------------------------------------
-DATA_FILE = "pantry.json"
+    cursor.execute("""
+        CREATE TABLE IF NOT EXISTS pantry (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            item_name TEXT,
+            quantity REAL,
+            unit TEXT,
+            purchase_date DATE
+        )
+    """)
 
-# Load pantry if exists
-if os.path.exists(DATA_FILE):
-    with open(DATA_FILE, "r") as f:
-        PANTRY = json.load(f)
-else:
-    PANTRY = []
+    conn.commit()
+    conn.close()
 
-# Save pantry
-def save_pantry():
-    with open(DATA_FILE, "w") as f:
-        json.dump(PANTRY, f)
+init_db()
 
-# --------------------------------------------
-# FOOD CATEGORY MAP
-# --------------------------------------------
-FOOD_MAP = {
-    "apple": "Fruits & Vegetables",
-    "banana": "Fruits & Vegetables",
-    "milk": "Dairy Products",
-    "bread": "Bakery Items",
-    "rice": "Grains & Cereals",
-    "chicken": "Meat & Seafood",
-    "fish": "Meat & Seafood",
-    "juice": "Beverages",
-    "pizza": "Prepared Food"
-}
+# -------------------------------
+# NORMALIZE FUNCTION
+# -------------------------------
+def normalize_item(name):
+    return name.strip().lower()
 
-EXPIRY_MAP = {
-    "Fruits & Vegetables": 5,
-    "Dairy Products": 3,
-    "Bakery Items": 4,
-    "Meat & Seafood": 2,
-    "Prepared Food": 2,
-    "Beverages": 7,
-    "Grains & Cereals": 30
-}
-# --------------------------------------------
-# HOME
-# --------------------------------------------
+# -------------------------------
+# HOME PAGE
+# -------------------------------
 @app.route("/")
 def home():
-    return render_template("index.html")
+    return render_template("upload.html")
+def recommend_recipes(pantry_items, high_risk_items):
 
-# Module 1
+    pantry_text = " ".join(pantry_items)
+
+    pantry_vec = vectorizer.transform([pantry_text])
+
+    scores = cosine_similarity(pantry_vec, tfidf_matrix).flatten()
+
+    # 🔥 Boost high-risk items
+    for i, row in recipes_df.iterrows():
+        if any(item in row["ingredients"] for item in high_risk_items):
+            scores[i] += 0.3
+
+    top_indices = scores.argsort()[-5:][::-1]
+
+    return recipes_df.iloc[top_indices][
+        ["recipe_name", "Cuisine", "URL", "image-url"]
+    ]
+# -------------------------------
+# FILE UPLOAD
+# -------------------------------
+@app.route("/upload", methods=["POST"])
+def upload_file():
+    file = request.files["file"]
+
+    if file:
+        filepath = os.path.join(UPLOAD_FOLDER, file.filename)
+        file.save(filepath)
+
+        # Read CSV
+        df = pd.read_csv(filepath)
+
+        # Normalize
+        df["item"] = df["item"].apply(normalize_item)
+        df["unit"] = df["unit"].str.lower()
+
+        # Add purchase date (ML IMPORTANT)
+        today = datetime.now().date()
+        df["purchase_date"] = today
+
+        # Insert into DB
+        conn = sqlite3.connect("pantry.db")
+        cursor = conn.cursor()
+
+        for _, row in df.iterrows():
+            cursor.execute("""
+                INSERT INTO pantry (item_name, quantity, unit, purchase_date)
+                VALUES (?, ?, ?, ?)
+            """, (row["item"], row["quantity"], row["unit"], row["purchase_date"]))
+
+        conn.commit()
+        conn.close()
+
+        return redirect("/pantry")
+
+    return "❌ Upload failed"
+
+# -------------------------------
+# VIEW PANTRY
+# -------------------------------
 @app.route("/pantry")
-def pantry():
-    return render_template("pantry.html")
+def view_pantry():
+    conn = sqlite3.connect("pantry.db")
+    df = pd.read_sql_query("SELECT * FROM pantry", conn)
+    conn.close()
 
-# Module 2
+    today = datetime.now().date()
+
+    risks = []
+    alerts = []
+
+    for _, row in df.iterrows():
+
+        purchase_date = datetime.strptime(row["purchase_date"], "%Y-%m-%d").date()
+        days_old = (today - purchase_date).days
+
+        quantity = row["quantity"]
+        family_size = 4
+
+        category = get_category(row["item_name"])
+        category_encoded = encoder.transform([category])[0]
+
+        pred = risk_model.predict([[family_size, quantity, days_old, category_encoded]])[0]
+
+        # 🔹 Risk label
+        if pred == 0:
+            risks.append("LOW 🟢")
+        elif pred == 1:
+            risks.append("MEDIUM 🟡")
+        else:
+            risks.append("HIGH 🔴")
+
+        # 🔥 ALERT LOGIC
+        if pred == 2:
+            alerts.append("⚠ Use Today")
+        elif pred == 1:
+            alerts.append("⏳ Use Soon")
+        elif quantity < 1:
+            alerts.append("🛒 Low Stock")
+        elif days_old > 5:
+            alerts.append("🚨 May Spoil")
+        else:
+            alerts.append("✅ Safe")
+
+    df["risk"] = risks
+    df["alert"] = alerts
+    
+
+    return render_template("pantry.html", items=df.values)
 @app.route("/recipes")
-def recipes():
-    return render_template("recipes.html")
+def recipes_page():
 
-# Future modules (optional placeholders)
-@app.route("/shopping")
-def shopping():
-    return "<h2>Coming Soon 🚀</h2>"
+    # Load pantry data
+    conn = sqlite3.connect("pantry.db")
+    df = pd.read_sql_query("SELECT * FROM pantry", conn)
+    conn.close()
 
-@app.route("/nutrition")
-def nutrition():
-    return "<h2>Coming Soon 🚀</h2>"
+    today = datetime.now().date()
 
-# --------------------------------------------
-# ADD ITEM
-# --------------------------------------------
-@app.route("/add_item", methods=["POST"])
-def add_item():
+    risks = []
 
-    try:
-        data = request.get_json()
+    for _, row in df.iterrows():
 
-        name = data.get("name", "").lower()
-        quantity = float(data.get("quantity", 0))
-        family_size = float(data.get("family_size", 0))
+        purchase_date = datetime.strptime(row["purchase_date"], "%Y-%m-%d").date()
+        days_old = (today - purchase_date).days
 
-        # ❌ validation
-        if not name or quantity <= 0 or family_size <= 0:
-            return jsonify({"error": "Invalid input"}), 400
+        quantity = row["quantity"]
+        family_size = 4
 
-        category = FOOD_MAP.get(name, "Prepared Food")
+        category = get_category(row["item_name"])
+        category_encoded = encoder.transform([category])[0]
 
-        item = {
-            "name": name,
-            "category": category,
-            "quantity": quantity,
-            "family_size": family_size,
-            "date_added": datetime.now().strftime("%Y-%m-%d")
-        }
+        pred = risk_model.predict([[family_size, quantity, days_old, category_encoded]])[0]
 
-        PANTRY.append(item)
-        save_pantry()
-
-        return jsonify({"message": "Added"})
-
-    except Exception as e:
-        return jsonify({"error": str(e)}), 500
-@app.route("/delete_item/<int:index>", methods=["POST"])
-def delete_item(index):
-    try:
-        if 0 <= index < len(PANTRY):
-            PANTRY.pop(index)
-            save_pantry()
-            return jsonify({"message": "Deleted"})
+        if pred == 2:
+            risks.append("HIGH")
+        elif pred == 1:
+            risks.append("MEDIUM")
         else:
-            return jsonify({"error": "Invalid index"}), 400
-    except Exception as e:
-        return jsonify({"error": str(e)}), 500
-# --------------------------------------------
-# GET PANTRY (AUTO CALCULATED)
-# --------------------------------------------
-@app.route("/get_pantry")
-def get_pantry():
+            risks.append("LOW")
 
-    result = []
+    # 🔥 Pantry items
+    pantry_items = df["item_name"].tolist()
 
-    for item in PANTRY:
+    # 🔥 High risk items
+    high_risk_items = [
+        df.iloc[i]["item_name"] for i in range(len(df)) if risks[i] == "HIGH"
+    ]
 
-        # Calculate storage days
-        added_date = datetime.strptime(item["date_added"], "%Y-%m-%d")
-        storage_days = (datetime.now() - added_date).days
+    # 🔥 Get recipes
+    recipes = recommend_recipes(pantry_items, high_risk_items)
 
-        # Encode
-        item_encoded = encoder.transform([item["category"]])[0]
+    return render_template("recipes.html", recipes=recipes.values)
+# -------------------------------
+# DELETE ITEM
+# -------------------------------
+@app.route("/delete/<int:item_id>")
+def delete_item(item_id):
+    conn = sqlite3.connect("pantry.db")
+    cursor = conn.cursor()
 
-        features = np.array([[
-            item["family_size"],
-            item["quantity"],
-            storage_days,
-            item_encoded
-        ]])
+    cursor.execute("DELETE FROM pantry WHERE id=?", (item_id,))
+    conn.commit()
+    conn.close()
 
-        # Predict waste
-        waste = waste_model.predict(features)[0]
-        waste = max(0, waste)
+    return redirect("/pantry")
 
-        # Rule-based risk
-        ratio = waste / item["quantity"]
-
-        if ratio < 0.3:
-            risk = "LOW"
-        elif ratio <= 0.6:
-            risk = "MEDIUM"
-        else:
-            risk = "HIGH"
-        expiry_days = EXPIRY_MAP.get(item["category"], 5)
-
-        days_left = expiry_days - storage_days
-
-        if days_left <= 0:
-            alert = "EXPIRED"
-        elif days_left <= 2:
-            alert = "USE SOON"
-        else:
-            alert = "FRESH"
-
-        result.append({
-            "name": item["name"],
-            "category": item["category"],
-            "quantity": item["quantity"],
-            "days": storage_days,
-            "waste": round(float(waste), 2),
-            "risk": risk,
-             "expiry": alert
-        })
-
-    return jsonify(result)
-@app.route("/recommend", methods=["POST"])
-def recommend():
-
-    data = request.get_json()
-    pantry = data.get("pantry", [])
-
-    print("PANTRY RECEIVED:", pantry)   # 👈 ADD THIS
-
-    recipes = recommend_recipes(pantry)
-
-    print("RECIPES:", recipes)          # 👈 ADD THIS
-
-    return jsonify({"recipes": recipes})
-
-# --------------------------------------------
-# CLEAR PANTRY
-# --------------------------------------------
-@app.route("/clear_pantry", methods=["POST"])
-def clear():
-    PANTRY.clear()
-    save_pantry()
-    return jsonify({"message": "cleared"})
-
-# --------------------------------------------
-# RUN
-# --------------------------------------------
+# -------------------------------
 if __name__ == "__main__":
     app.run(debug=True)

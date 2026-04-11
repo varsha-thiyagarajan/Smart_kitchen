@@ -54,3 +54,143 @@ button:hover {
     font-weight: bold;
     font-size: 18px;
 }
+body {
+    margin: 0;
+    padding: 0;
+    font-family: 'Segoe UI', sans-serif;
+    background: linear-gradient(135deg, #dfe9f3, #ffffff);
+}
+
+/* Center container */
+.container {
+    text-align: center;
+    margin: 50px auto;
+    width: 90%;          /* 🔥 increase width */
+    max-width: 1200px;  /* 🔥 control max size */
+}
+
+/* Title */
+h1 {
+    font-size: 42px;
+    color: #2c3e50;
+    margin-bottom: 10px;
+}
+
+/* Subtitle */
+.subtitle {
+    color: #7f8c8d;
+    margin-bottom: 30px;
+}
+
+/* Card box */
+.card {
+    background: white;
+    padding: 30px;
+    margin: auto;
+    width: 350px;
+    border-radius: 15px;
+    box-shadow: 0px 10px 25px rgba(0,0,0,0.1);
+}
+
+/* File input */
+input[type="file"] {
+    margin-bottom: 20px;
+}
+
+/* Button */
+button {
+    background: #27ae60;
+    color: white;
+    border: none;
+    padding: 12px 25px;
+    border-radius: 8px;
+    cursor: pointer;
+    font-size: 16px;
+}
+
+button:hover {
+    background: #219150;
+}
+
+/* Link button */
+.link-btn {
+    display: inline-block;
+    margin-top: 25px;
+    text-decoration: none;
+    color: white;
+    background: #2980b9;
+    padding: 10px 20px;
+    border-radius: 8px;
+}
+
+.link-btn:hover {
+    background: #21618c;
+}
+table {
+    margin: auto;
+    border-collapse: collapse;
+    width: 80%;
+    background: white;
+    box-shadow: 0px 10px 20px rgba(0,0,0,0.1);
+    border-radius: 10px;
+    overflow: hidden;
+}
+
+th, td {
+    padding: 12px;
+    text-align: center;
+}
+
+th {
+    background: #2c3e50;
+    color: white;
+}
+
+tr:nth-child(even) {
+    background: #f2f2f2;
+}
+
+.delete-btn {
+    text-decoration: none;
+    color: white;
+    background: #e74c3c;
+    padding: 6px 10px;
+    border-radius: 5px;
+}
+
+.delete-btn:hover {
+    background: #c0392b;
+}
+.high {
+    color: red;
+    font-weight: bold;
+}
+
+.medium {
+    color: orange;
+}
+
+.low {
+    color: green;
+}
+.alert-high {
+    color: red;
+    font-weight: bold;
+}
+
+.alert-medium {
+    color: orange;
+}
+
+.alert-safe {
+    color: green;
+}
+.btn {
+    display: inline-block;
+    padding: 10px 15px;
+    background: green;
+    color: white;
+    border-radius: 6px;
+    text-decoration: none;
+    margin: 10px;
+}

@@ -8,39 +8,37 @@ Original file is located at
 """
 
 # ============================================
-# SMART FOOD WASTE MANAGEMENT - FULL PIPELINE
+# SMART FOOD WASTE MANAGEMENT - FINAL ML PIPELINE
 # ============================================
 
-# STEP 1: Upload Dataset
-from google.colab import files
-
-# STEP 2: Import Libraries
 import pandas as pd
 import numpy as np
-from sklearn.preprocessing import LabelEncoder
+from sklearn.preprocessing import LabelEncoder, StandardScaler
 from sklearn.model_selection import train_test_split
 from sklearn.linear_model import LinearRegression
+from sklearn.ensemble import RandomForestRegressor, RandomForestClassifier
 from sklearn.tree import DecisionTreeClassifier
-from sklearn.metrics import r2_score, mean_absolute_error
+from sklearn.metrics import r2_score, mean_absolute_error, accuracy_score
+from sklearn.pipeline import Pipeline
 import joblib
 
-# STEP 3: Load Dataset (replace filename if needed)
+# ============================================
+# STEP 1: LOAD DATA
+# ============================================
+
 df = pd.read_csv("wastage.csv")
 
 print("Dataset Loaded:", df.shape)
-print(df.head())
 
 # ============================================
-# STEP 4: PREPROCESSING
+# STEP 2: PREPROCESSING
 # ============================================
 
-# Rename columns
 df.rename(columns={
     "Food Category": "item_type",
     "Total Waste (Tons)": "total_waste",
     "Avg Waste per Capita (Kg)": "waste_per_capita",
-    "Population (Million)": "population",
-    "Household Waste (%)": "household_pct"
+    "Population (Million)": "population"
 }, inplace=True)
 
 # Fill missing values
@@ -49,97 +47,108 @@ df.fillna(df.median(numeric_only=True), inplace=True)
 # Convert tons → kg
 df["total_waste_kg"] = df["total_waste"] * 1000
 
-# Convert to household-level
+# Waste per person
 df["waste_per_person"] = df["total_waste_kg"] / (df["population"] * 1e6)
 
-# Simulate family size
+# Simulate realistic household features
 np.random.seed(42)
 df["family_size"] = np.random.randint(2, 6, len(df))
+df["food_quantity"] = df["family_size"] * np.random.uniform(1, 3, len(df))
+df["storage_days"] = np.random.randint(1, 10, len(df))
 
-# Final waste at household level
+# Final target
 df["food_waste_kg"] = df["waste_per_person"] * df["family_size"]
 
-# Create additional features
-df["food_quantity"] = df["family_size"] * np.random.uniform(1, 3, len(df))
-df["storage_days"] = (df["waste_per_capita"] / 10).astype(int)
-
-# Select final dataset
-df_model = df[[
-    "family_size",
-    "food_quantity",
-    "storage_days",
-    "item_type",
-    "food_waste_kg"
-]]
-
 # ============================================
-# STEP 5: ENCODING
+# STEP 3: ENCODING
 # ============================================
 
 le = LabelEncoder()
-df_model["item_type"] = le.fit_transform(df_model["item_type"])
+df["item_type"] = le.fit_transform(df["item_type"])
 
 # ============================================
-# STEP 6: LINEAR REGRESSION MODEL
+# STEP 4: REGRESSION MODELS (WASTE PREDICTION)
 # ============================================
 
-X = df_model.drop("food_waste_kg", axis=1)
-y = df_model["food_waste_kg"]
+X = df[["family_size", "food_quantity", "storage_days", "item_type"]]
+y = df["food_waste_kg"]
 
 X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2)
 
-lr_model = LinearRegression()
-lr_model.fit(X_train, y_train)
+# 🔹 Linear Regression
+lr = Pipeline([
+    ('scaler', StandardScaler()),
+    ('model', LinearRegression())
+])
+lr.fit(X_train, y_train)
 
-y_pred = lr_model.predict(X_test)
+y_pred_lr = lr.predict(X_test)
 
 print("\n--- Linear Regression ---")
-print("R2 Score:", r2_score(y_test, y_pred))
-print("MAE:", mean_absolute_error(y_test, y_pred))
+print("R2:", r2_score(y_test, y_pred_lr))
+print("MAE:", mean_absolute_error(y_test, y_pred_lr))
+
+# 🔹 Random Forest (BEST MODEL 🔥)
+rf = RandomForestRegressor()
+rf.fit(X_train, y_train)
+
+y_pred_rf = rf.predict(X_test)
+
+print("\n--- Random Forest Regression ---")
+print("R2:", r2_score(y_test, y_pred_rf))
+print("MAE:", mean_absolute_error(y_test, y_pred_rf))
 
 # ============================================
-# STEP 7: RISK CLASSIFIER
+# STEP 5: CREATE RISK LABEL
 # ============================================
 
 def risk_label(waste, qty):
     ratio = waste / qty
     if ratio < 0.3:
-        return 0   # LOW
+        return 0
     elif ratio <= 0.6:
-        return 1   # MEDIUM
+        return 1
     else:
-        return 2   # HIGH
+        return 2
 
-df_model["risk"] = [
-    risk_label(w, q) for w, q in zip(df_model["food_waste_kg"], df_model["food_quantity"])
+df["risk"] = [
+    risk_label(w, q) for w, q in zip(df["food_waste_kg"], df["food_quantity"])
 ]
 
-X_cls = df_model.drop(["food_waste_kg", "risk"], axis=1)
-y_cls = df_model["risk"]
+# ============================================
+# STEP 6: CLASSIFICATION MODELS
+# ============================================
+
+X_cls = df[["family_size", "food_quantity", "storage_days", "item_type"]]
+y_cls = df["risk"]
 
 X_train, X_test, y_train, y_test = train_test_split(X_cls, y_cls, test_size=0.2)
 
-dt_model = DecisionTreeClassifier()
-dt_model.fit(X_train, y_train)
+# 🔹 Decision Tree
+dt = DecisionTreeClassifier()
+dt.fit(X_train, y_train)
+
+y_pred_dt = dt.predict(X_test)
 
 print("\n--- Decision Tree ---")
-print("Accuracy:", dt_model.score(X_test, y_test))
+print("Accuracy:", accuracy_score(y_test, y_pred_dt))
+
+# 🔹 Random Forest Classifier (BEST 🔥)
+rf_cls = RandomForestClassifier()
+rf_cls.fit(X_train, y_train)
+
+y_pred_rf_cls = rf_cls.predict(X_test)
+
+print("\n--- Random Forest Classifier ---")
+print("Accuracy:", accuracy_score(y_test, y_pred_rf_cls))
 
 # ============================================
-# STEP 8: SAVE MODELS
+# STEP 7: SAVE BEST MODELS
 # ============================================
 
-joblib.dump(lr_model, "waste_model.pkl")
-joblib.dump(dt_model, "risk_model.pkl")
+joblib.dump(rf, "waste_model.pkl")       # regression
+joblib.dump(rf_cls, "risk_model.pkl")    # classification
 joblib.dump(le, "encoder.pkl")
 
-print("\nModels saved successfully!")
-
-# ============================================
-# STEP 9: DOWNLOAD MODELS
-# ============================================
-
-files.download("waste_model.pkl")
-files.download("risk_model.pkl")
-files.download("encoder.pkl")
+print("\n✅ Models saved successfully!")
 
