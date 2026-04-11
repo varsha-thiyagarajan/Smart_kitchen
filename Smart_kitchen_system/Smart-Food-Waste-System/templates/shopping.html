@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Smart Shopping</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+
+<body>
+
+<!-- NAVBAR -->
+<nav class="navbar">
+    <a href="/">🏠 Home</a>
+    <a href="/pantry">📦 Pantry</a>
+    <a href="/recipes">🍲 Recipes</a>
+    <a href="/nutrition">📊 Nutrition</a>
+    <a href="/shopping">🛒 Shopping</a>
+</nav>
+
+<h1>🛒 Smart Shopping & Alerts</h1>
+
+<!-- SPOILAGE ALERTS -->
+<h2>⚠️ Spoilage Alerts</h2>
+
+<div class="card">
+{% if alerts %}
+    {% for a in alerts %}
+        <p>{{ a }}</p>
+    {% endfor %}
+{% else %}
+    <p>No spoilage alerts ✅</p>
+{% endif %}
+</div>
+
+<!-- SHOPPING LIST -->
+<h2>🛍 Items to Buy Soon</h2>
+
+<div class="card">
+{% if shopping_list %}
+    {% for item in shopping_list %}
+        <p>{{ item }}</p>
+    {% endfor %}
+{% else %}
+    <p>All items sufficient ✅</p>
+{% endif %}
+</div>
+
+</body>
+</html>

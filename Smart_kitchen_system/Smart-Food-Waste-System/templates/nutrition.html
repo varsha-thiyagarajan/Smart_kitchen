@@ -1,0 +1,51 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Daily Nutrition</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+
+<body>
+    <nav class="navbar">
+    <a href="/">🏠 Home</a>
+    <a href="/pantry">📦 Pantry</a>
+    <a href="/recipes">🍲 Recipes</a>
+    <a href="/nutrition">📊 Nutrition</a>
+    <a href="/shopping">🛒 Shopping</a>
+</nav>
+
+<h1>📊 Today's Nutrition</h1>
+
+<table>
+    <tr>
+        <th>Dish</th>
+        <th>Calories</th>
+        <th>Protein</th>
+        <th>Fat</th>
+        <th>Carbs</th>
+    </tr>
+
+    {% for row in items %}
+    <tr>
+        <td>{{ row[2] }}</td>
+        <td>{{ row[3] }}</td>
+        <td>{{ row[4] }}</td>
+        <td>{{ row[5] }}</td>
+        <td>{{ row[6] }}</td>
+    </tr>
+    {% endfor %}
+</table>
+
+<h2>🔥 Total Intake Today</h2>
+
+<div class="card">
+    <p>Calories: {{ total_cal }} kcal</p>
+    <p>Protein: {{ total_pro }} g</p>
+    <p>Fat: {{ total_fat }} g</p>
+    <p>Carbs: {{ total_carbs }} g</p>
+</div>
+
+<a href="/recipes">⬅ Back</a>
+
+</body>
+</html>

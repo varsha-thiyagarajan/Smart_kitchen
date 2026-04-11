@@ -7,15 +7,41 @@
 
 <body>
 
-<h1>🍲 Recommended Recipes</h1>
+<!-- NAVBAR -->
+<nav class="navbar">
+    <a href="/">🏠 Home</a>
+    <a href="/pantry">📦 Pantry</a>
+    <a href="/recipes">🍲 Recipes</a>
+    <a href="/nutrition">📊 Nutrition</a>
+    <a href="/shopping">🛒 Shopping</a>
+</nav>
 
+<h1 class="title">🍽 Smart Kitchen System</h1>
+<h2 class="subtitle">🍲 Recommended Recipes</h2>
+
+<!-- 🔥 EMPTY MESSAGE -->
+{% if message %}
+    <div class="message">
+        <p>{{ message }}</p>
+        <a href="/pantry" class="btn">➕ Add Pantry Items</a>
+    </div>
+{% endif %}
+
+<!-- RECIPES -->
 <div class="recipes">
   {% for r in recipes %}
     <div class="card">
-        <img src="{{ r[3] }}">
         <h3>{{ r[0] }}</h3>
-        <p>🍽 {{ r[1] }}</p>
-        <a href="{{ r[2] }}" target="_blank">View Recipe</a>
+        <p class="cuisine">🍽 {{ r[1] }}</p>
+
+        <div class="btn-group">
+            <a href="{{ r[2] }}" target="_blank" class="btn">View Recipe</a>
+
+            <form action="/cook" method="POST">
+                <input type="hidden" name="recipe_name" value="{{ r[0] }}">
+                <button type="submit" class="cook-btn">Cook 🍳</button>
+            </form>
+        </div>
     </div>
   {% endfor %}
 </div>
