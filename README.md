@@ -11,7 +11,6 @@ Quantity
 Purchase date
 Data stored using SQLite database
 ⚠️ 2. Food Waste Prediction (ML Model)
-
 Predicts spoilage risk using:
 
 Quantity
