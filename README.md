@@ -102,7 +102,7 @@ Smart-Food-Waste-System/
 ⚙️ Installation & Setup
 1️⃣ Clone Repository
 
-git clone https://github.com/your-username/smart-kitchen-system.git
+git clone https://github.com/varsha-thiyagarajan/Smart_kitchen.git
 
 cd smart-kitchen-system
 
